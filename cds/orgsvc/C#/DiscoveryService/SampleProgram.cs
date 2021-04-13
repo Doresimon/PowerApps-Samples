@@ -11,11 +11,12 @@ namespace PowerApps.Samples
     {
         static void Main(string[] args)
         {
-            string username = "yourUserName@yourOrgName.onmicrosoft.com";
-            string password = "yourPassword";
+            string username = string.Empty;
+            string password = string.Empty;
 
             //Set the dataCenter if you know it, otherwise use DataCenter.Unknown to search all.
-            DataCenter dataCenter = DataCenter.Unknown;
+            //DataCenter dataCenter = DataCenter.Unknown;
+            DataCenter dataCenter = DataCenter.TIP;
 
             //Get all environments for the selected data center;
             List<OrganizationDetail> orgs = GetAllOrganizations(username, password, dataCenter);
@@ -36,11 +37,11 @@ namespace PowerApps.Samples
             {
                 number++;
 
-          //Get the Organization Service URL
-          string fullOrgServiceUrl = o.Endpoints[EndpointType.OrganizationService];
+                //Get the Organization Service URL
+                string fullOrgServiceUrl = o.Endpoints[EndpointType.OrganizationService];
 
-          // Trim '/XRMServices/2011/Organization.svc' from the end.
-          string shortOrgServiceUrl = fullOrgServiceUrl.Substring(0, fullOrgServiceUrl.Length - 34);
+                // Trim '/XRMServices/2011/Organization.svc' from the end.
+                string shortOrgServiceUrl = fullOrgServiceUrl.Substring(0, fullOrgServiceUrl.Length - 34);
 
                 Console.WriteLine("{0} Name: {1} URL: {2}", number, o.FriendlyName, shortOrgServiceUrl);
             });

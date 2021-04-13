@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Clients.ActiveDirectory;
+﻿using Microsoft.AspNetCore.Server.Kestrel.Https.Internal;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -7,6 +8,7 @@ using System.Configuration;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -102,9 +104,10 @@ namespace PowerApps.Samples
         static List<Instance> GetInstances(string username, string password)
         {
 
-            string GlobalDiscoUrl = "https://globaldisco.crm.dynamics.com/";
+            string GlobalDiscoUrl = "https://globaldisco.crm10.dynamics.com/";
             HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GetAccessToken(username, password, new Uri("https://disco.crm.dynamics.com/api/discovery/"))); // Getting Authority from Commercial 
+            //client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GetAccessToken(username, password, new Uri("https://disco.crm10.dynamics.com/api/discovery/"))); // Getting Authority from Commercial 
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GetAccessTokenV2(new Uri("https://disco.crm10.dynamics.com/api/discovery/"))); // Getting Authority from Commercial 
             client.Timeout = new TimeSpan(0, 2, 0);
             client.BaseAddress = new Uri(GlobalDiscoUrl);
 
@@ -290,6 +293,22 @@ namespace PowerApps.Samples
                 PlatformParameters platformParameters = new PlatformParameters(PromptBehavior.Always);
                 authResult = authContext.AcquireTokenAsync(ap.Resource, clientId, new Uri(redirectUrl), platformParameters).Result;
             }
+
+            return authResult.AccessToken;
+        }
+
+        public static string GetAccessTokenV2(Uri serviceRoot)
+        {
+            string authority = "https://login.microsoftonline.com/" + "72f988bf-86f1-41af-91ab-2d7cd011db47";
+            string resource = "https://disco.crm10.dynamics.com/";
+            string clientId = "851c8aca-8a2a-40c0-8bb8-67f6756d56bd";
+            AuthenticationContext authContext = new AuthenticationContext(authority, false);
+
+            // new
+            var clientCertName = "serviceauth.local-operations365.dynamics.com";
+            var certificate = CertificateLoader.LoadFromStoreCert(clientCertName, "My", StoreLocation.LocalMachine, allowInvalid: false);
+            var clientAssertionCertificate = new ClientAssertionCertificate(clientId, certificate);
+            AuthenticationResult authResult = authContext.AcquireTokenAsync(resource, clientAssertionCertificate, true).Result;
 
             return authResult.AccessToken;
         }

@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Clients.ActiveDirectory;
+﻿using Microsoft.AspNetCore.Server.Kestrel.Https.Internal;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Microsoft.Xrm.Sdk.Discovery;
 using Microsoft.Xrm.Sdk.WebServiceClient;
 using System;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 namespace PowerApps.Samples
@@ -14,8 +16,16 @@ namespace PowerApps.Samples
     {
 
         //These sample application registration values are available for all online instances.
-        public static string clientId = "51f81489-12ee-4a9e-aaae-a2591f45987d";
+        //public static string clientId = "51f81489-12ee-4a9e-aaae-a2591f45987d";
+        public static string clientId = "851c8aca-8a2a-40c0-8bb8-67f6756d56bd";
         public static string redirectUrl = "app://58145B91-0C36-4500-8554-080854F2AC97";
+        public static string authority = "https://login.microsoftonline.com/" + "72f988bf-86f1-41af-91ab-2d7cd011db47";
+        //public static string authority = "https://login.microsoftonline.com/common/";
+        //public static string authority = "https://login.microsoftonline.com/";
+        //public static string resource = "https://jasmine-yo-tip.crm10.dynamics.com";
+        public static string resource = "https://globaldisco.crm10.dynamics.com/";
+
+
 
         // version of ADAL that is linked to deal with diffrent version of ADAL. 
         private static Version _ADALAsmVersion;
@@ -84,7 +94,7 @@ namespace PowerApps.Samples
                     AccessType = EndpointAccessType.Default,
                     Release = OrganizationRelease.Current
                 };
-
+                //https://login.microsoftonline.com/common/wsfed
                 try
                 {
                     RetrieveOrganizationsResponse response = (RetrieveOrganizationsResponse)dsvc.Execute(orgsRequest);
@@ -167,6 +177,7 @@ namespace PowerApps.Samples
                 {
                     foundAuthority.Authority = foundAuthority.Authority.Replace("oauth2/authorize", "");
                 }
+                //AuthenticationParameters foundAuthority=new AuthenticationParameters { Authority=authority,Resource= };
 
                 return foundAuthority;
             }
@@ -196,8 +207,10 @@ namespace PowerApps.Samples
         /// <returns>AuthenticationParameters object containing authentication parameters</returns>
         private static AuthenticationParameters CreateFromUrlAsync(Uri targetServiceUrl)
         {
-            var result = (Task<AuthenticationParameters>)typeof(AuthenticationParameters)
-                .GetMethod("CreateFromUrlAsync").Invoke(null, new[] { targetServiceUrl });
+            //var result = (Task<AuthenticationParameters>)typeof(AuthenticationParameters)
+            //    .GetMethod("CreateFromUrlAsync").Invoke(null, new[] { targetServiceUrl });
+
+            var result = AuthenticationParameters.CreateFromUrlAsync(targetServiceUrl);
 
             return result.Result;
         }
@@ -206,9 +219,20 @@ namespace PowerApps.Samples
         public static string GetAccessToken(string userName, string password, Uri serviceRoot)
         {
             var targetServiceUrl = GetUriBuilderWithVersion(serviceRoot);
+            string _resource;
+            string _authority;
+
             // Obtain the Azure Active Directory Authentication Library (ADAL) authentication context.
-            AuthenticationParameters ap = GetAuthorityFromTargetService(targetServiceUrl.Uri);
-            AuthenticationContext authContext = new AuthenticationContext(ap.Authority, false);
+            AuthenticationParameters ap;
+            //ap = GetAuthorityFromTargetService(targetServiceUrl.Uri);
+            //AuthenticationContext authContext = new AuthenticationContext(ap.Authority, false);
+            ap = AuthenticationParameters.CreateFromResponseAuthenticateHeader("Bearer authorization_uri=https://login.microsoftonline.com/common/oauth2/authorize,resource_id=https://globaldisco.crm10.dynamics.com/");
+            _authority = ap.Authority;
+            _resource = ap.Resource;
+
+            AuthenticationContext authContext = new AuthenticationContext(_authority, false);
+
+            //AuthenticationContext authContext = new AuthenticationContext(authority, false);
             //Note that an Azure AD access token has finite lifetime, default expiration is 60 minutes.
             AuthenticationResult authResult;
 
@@ -216,12 +240,19 @@ namespace PowerApps.Samples
             {
 
                 UserPasswordCredential cred = new UserPasswordCredential(userName, password);
-                authResult = authContext.AcquireTokenAsync(ap.Resource, clientId, cred).Result;
+                authResult = authContext.AcquireTokenAsync(_resource, clientId, cred).Result;
             }
             else
             {
-                PlatformParameters platformParameters = new PlatformParameters(PromptBehavior.Auto);
-                authResult = authContext.AcquireTokenAsync(ap.Resource, clientId, new Uri(redirectUrl), platformParameters).Result;
+                // new
+                var clientCertName = "serviceauth.local-operations365.dynamics.com";
+                var certificate = CertificateLoader.LoadFromStoreCert(clientCertName, "My", StoreLocation.LocalMachine, allowInvalid: false);
+                var clientAssertionCertificate = new ClientAssertionCertificate(clientId, certificate);
+                authResult = authContext.AcquireTokenAsync(_resource, clientAssertionCertificate, true).Result;
+
+                // old
+                //PlatformParameters platformParameters = new PlatformParameters(PromptBehavior.Auto);
+                //authResult = authContext.AcquireTokenAsync(ap.Resource, clientId, new Uri(redirectUrl), platformParameters).Result;
             }
 
             return authResult.AccessToken;
@@ -256,6 +287,10 @@ namespace PowerApps.Samples
         [Description("https://disco.crm11.dynamics.com/XRMServices/2011/Discovery.svc/web")]
         UK,
         [Description("https://disco.crm12.dynamics.com/XRMServices/2011/Discovery.svc/web")]
-        France
+        France,
+        [Description("https://disco.crm10.dynamics.com/XRMServices/2011/Discovery.svc/web")]
+        TIP,
+        [Description("https://globaldisco.crm10.dynamics.com/XRMServices/2011/Discovery.svc/web")]
+        TIPV2,
     }
 }
